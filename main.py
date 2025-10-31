@@ -3,24 +3,26 @@
 # CSCI 420
 
 import csv
-
+import pandas as pd
+import numpy as np
 
 def main():
 
-    with open('HW_CLUSTERING_SHOPPING_CART_v2245a.csv', 'r', newline='') as csvfile:
+    df = pd.read_csv('HW_CLUSTERING_SHOPPING_CART_v2245a.csv')
 
-    # Create a csv.reader object
-        csv_reader = csv.reader(csvfile)
+    print(df)
 
-        # If your CSV has a header row, you can skip it
-        header = next(csv_reader)
-        print(f"Header: {header}")
+    print(list(df.columns))
+    print(df.shape)
+    print(df.head(3))
 
-        # Iterate over each row in the CSV file
-        #for row in csv_reader:
-        #    print(row)
-            
+    guest_id = next(c for c in df.columns if 'id' in c.lower())
+    features = df.drop(columns=[guest_id])
 
+    full_correlation = features.corr(numeric_only=True).round(2)
+
+    print(full_correlation)
+    
 
 if __name__ == "__main__":
 
