@@ -29,19 +29,15 @@ def main():
     print(features)
 
     corr_matrix = features.corr().round(2)
+
+
     
-    corr_matrix.to_csv('correlated_matrix.csv', index=False)
+    corr_matrix.to_csv('correlated_matrix.csv')
 
     abs_corr = corr_matrix.abs()
     np.fill_diagonal(abs_corr.values, 0)
 
-    max_value = np.max(abs_corr)
-    print(max_value)
 
-    max_pos = np.where(abs_corr == max_value)
-
-    row = corr_matrix.index[max_pos[0][0]] # pull column name of correlated matrix
-    col = corr_matrix.index[max_pos[1][0]] # pull row name of correlated matrix
 
 
     #print(abs_corr)
