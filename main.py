@@ -21,18 +21,7 @@ def main():
     """
     df = pd.read_csv('HW_CLUSTERING_SHOPPING_CART_v2245a.csv')
 
-    #print(df)
-
-    #print(list(df.columns))
-    #print(df.shape)
-    #print(df.head(3))
-
     features = df.iloc[:, 1:] # to drop guest id
-
-    #feature_names = df.columns[1:].tolist()
-    #print(feature_names)
-
-    #print(features)
 
     corr_matrix = features.corr().round(2)
     
@@ -48,108 +37,74 @@ def main():
     # Suppose there are 1000+ records meaning start with 1000+ clusters and 1000+ protoypes of those clusters
 
     clusters = []
-    
-    n_size = features.shape[0]
-
-    #print(features.values)
 
     data_points = features.values
-    #print(len(data_points))
 
-    #print(data_points)
+    cluster_centers = {}
+    clusters = {}
+    active_ids = set()
+
+    smallest_sizes = []  # Track smallest cluster size in each merge
 
     for i in range(len(data_points)):
 
-        clusters.append({
+        cluster_id = i
+        cluster_centers[cluster_id] = data_points[i]
+        clusters[cluster_id] = [i]
+        active_ids.add(cluster_id)
 
-            'center': data_points[i], # prototype - book purchase counts for each row
-            'clusters': [i], # cluster itself, can represent guest id
-            'size': 1
-
-        })
-
-    cluster_size = len(clusters)
-
-    min_dist = 0.0
-    cluster_i = 0
-    cluster_j = 0
-
-    distance = []
-    smallest_sizes = []
-    merge_history = []
-
-
+    # Build initial heap
     distance_heap = []
 
-   
-        # 1. Calculate all distances between clusters
-    distances = []
+    for cluster_i in active_ids:
 
-    for i in range(len(clusters)):
+        for cluster_j in active_ids:
 
-        for j in range(i+1, len(clusters)):
+            if cluster_j > cluster_i:  # Avoid duplicates
 
-            dist = np.linalg.norm(clusters[i]['center'] - clusters[j]['center'])
+                dist = euclidean_distance(cluster_centers[cluster_i], cluster_centers[cluster_j])
 
-            heapq.heappush(distance_heap, (dist, i, j))
+                heapq.heappush(distance_heap, (dist, cluster_i, cluster_j))
 
-        # 2. Find closest pair
-        
-    while len(clusters) > 1:
+    # Merge loop
+    while len(active_ids) > 1:
 
-        if len(clusters) % 100 == 0:  # Print progress every 100 merges
-
-            print(f"Clusters remaining: {len(clusters)}")
-        
+        # Get valid pair
         while True:
 
+            # (distance_heap = [], (distance, i, j))
             min_dist, i, j = heapq.heappop(distance_heap)
 
-            # Check if these clusters still exist and indices are valid
-
-            if (i < len(clusters) and j < len(clusters) and 
-                
-                clusters[i] is not None and clusters[j] is not None):
+            if i in active_ids and j in active_ids: # Stops the while loop once the pair is active to merge
 
                 break
 
-        # 3. Merge clusters i and j
-        size_i = clusters[i]['size']
-        size_j = clusters[j]['size']
-        total_size = size_i + size_j
-
-        smallest_size = min(size_i, size_j)
-
-        smallest_sizes.append(smallest_size)
-
-        merge_history.append((i,j, smallest_size))
         
-        # Calculate new center (weighted average)
-        new_center = (clusters[i]['center'] * size_i + clusters[j]['center'] * size_j) / total_size
+        # Merge j into i
+        clusters[i].extend(clusters[j]) # Adds j's elements into i's cluster
+
+        size_i = len(clusters[i]) - len(clusters[j]) # original i's cluster size before add j's elements in previous line
+
+        size_j = len(clusters[j]) # original j's cluster size
         
-        # Combine members
-        new_members = clusters[i]['clusters'] + clusters[j]['clusters']
+        smaller_size = min(size_i, size_j)
+        smallest_sizes.append(smaller_size)
+
+        cluster_centers[i] = (cluster_centers[i] * size_i + cluster_centers[j] * size_j) / (size_i + size_j)
         
-        # Create new merged cluster
-        new_cluster = {
-            'center': new_center,
-            'clusters': new_members,
-            'size': total_size
-        }
+        # Update distances for the merged cluster
+        for other_id in active_ids:
 
-        clusters.pop(max(i, j))
-        clusters.pop(min(i, j))
-        clusters.append(new_cluster)
-            
-        # 4. Remove old clusters and add new one
-        # Remove higher index first to avoid shifting issues
-        new_cluster_index = len(clusters) - 1  # The new cluster is at the end
+            if other_id != i and other_id != j:
 
-        for k in range(new_cluster_index):
+                new_dist = euclidean_distance(cluster_centers[i], cluster_centers[other_id])
 
-            dist = np.linalg.norm(clusters[k]['center'] - clusters[new_cluster_index]['center'])
-            heapq.heappush(distance_heap, (dist, k, new_cluster_index))
-    
+                heapq.heappush(distance_heap, (new_dist, i, other_id))
+        
+        # Clean up
+        del clusters[j]
+        del cluster_centers[j]
+        active_ids.remove(j)
 
     print("Size of smallest cluster in last 20 merges:", smallest_sizes[-20:])
     print("Last 10 smallest clusters merged:", smallest_sizes[-10:])
