@@ -6,6 +6,8 @@ import csv
 import pandas as pd
 import numpy as np
 import heapq
+import matplotlib.pyplot as plt
+from scipy.cluster.hierarchy import dendrogram, linkage
 
 def euclidean_distance(center1, center2):
 
@@ -67,6 +69,9 @@ def main():
                 heapq.heappush(distance_heap, (dist, cluster_i, cluster_j))
 
     # Merge loop
+
+    merge_history = []
+
     while len(active_ids) > 1:
 
         # Get valid pair
@@ -81,16 +86,20 @@ def main():
 
         
         # Merge j into i
-        clusters[i].extend(clusters[j]) # Adds j's elements into i's cluster
 
-        size_i = len(clusters[i]) - len(clusters[j]) # original i's cluster size before add j's elements in previous line
+        size_i = len(clusters[i]) # original i's cluster size before add j's elements in previous line
 
         size_j = len(clusters[j]) # original j's cluster size
-        
-        smaller_size = min(size_i, size_j)
-        smallest_sizes.append(smaller_size)
 
-        cluster_centers[i] = (cluster_centers[i] * size_i + cluster_centers[j] * size_j) / (size_i + size_j)
+        clusters[i].extend(clusters[j]) # Adds j's elements into i's cluster
+
+        size_i_ori = size_i
+        size_j = len(clusters[j])
+
+        smallest_size = min(size_i_ori, size_j)  # ← Calculated but not stored!
+        smallest_sizes.append(smallest_size)     # ← MISSING THIS LINE!
+        
+        cluster_centers[i] = (cluster_centers[i] * size_i_ori + cluster_centers[j] * size_j) / (size_i_ori + size_j)
         
         # Update distances for the merged cluster
         for other_id in active_ids:
@@ -106,6 +115,16 @@ def main():
         del cluster_centers[j]
         active_ids.remove(j)
 
+        merge_history.append({
+        'cluster1': i,
+        'cluster2': j, 
+        'size1': size_i_ori,
+        'size2': size_j,
+        'smallest_size': min(size_i_ori, size_j),
+        'distance': min_dist,
+        'new_size': len(clusters[i])  # Size after merge
+        })
+
     print("Final clusters:", len(clusters))
     print("Size of smallest cluster in last 20 merges:", smallest_sizes[-20:])
     print("Last 10 smallest clusters merged:", smallest_sizes[-10:])
@@ -115,25 +134,60 @@ def main():
         print(f"Merge {i}: smallest cluster size = {smallest_sizes[i]}")
         
     for cluster_id, member_list in clusters.items():
-        
+
         cluster_size = len(member_list)
         cluster_center = cluster_centers[cluster_id]
         print(f"Cluster {cluster_id}: {cluster_size} members")
         print(f"  Shopping pattern: {cluster_center}")
             
-    #print(clusters)
-
-    #print(clusters)
-
-    #print(abs_corr)
-
-
-    #print(full_correlation)
-
-
-
-    #print(strongly_correlated)
+    """
     
+    Dendogram
+    
+    """
+
+    # Quick dendrogram on sample data
+    #sample_size = min(200, len(data_points))
+    #test_data = data_points[:sample_size]
+
+    linkage_matrix = []
+    cluster_id_map = {i: i for i in range(len(data_points))}  # Map original IDs
+    next_id = len(data_points)  # Start new IDs after original points
+
+    for merge in merge_history:
+        # Map cluster IDs (like your partner does)
+        cluster1_mapped = cluster_id_map[merge['cluster1']]
+        cluster2_mapped = cluster_id_map[merge['cluster2']]
+        
+        # [cluster1, cluster2, distance, resulting_size]
+        linkage_matrix.append([
+            cluster1_mapped,
+            cluster2_mapped, 
+            merge['distance'], 
+            merge['new_size']  # TOTAL observations in merged cluster
+        ])
+        
+        # Update mapping for next iteration (like your partner)
+        cluster_id_map[merge['cluster1']] = next_id
+        next_id += 1
+
+    linkage_matrix = np.array(linkage_matrix)
+
+    # Plot dendrogram
+    plt.figure(figsize=(14, 8))
+    dendrogram(
+        linkage_matrix,
+        truncate_mode='lastp',
+        p=20,
+        show_leaf_counts=True,
+        leaf_rotation=45
+    )
+    plt.title('Dendrogram - Last 20 Clusters (Your Custom Algorithm)')
+    plt.xlabel('Cluster ID')
+    plt.ylabel('Merge Distance')
+    plt.tight_layout()
+    plt.show()
+
 if __name__ == "__main__":
 
     main()
