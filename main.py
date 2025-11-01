@@ -106,9 +106,21 @@ def main():
         del cluster_centers[j]
         active_ids.remove(j)
 
+    print("Final clusters:", len(clusters))
     print("Size of smallest cluster in last 20 merges:", smallest_sizes[-20:])
     print("Last 10 smallest clusters merged:", smallest_sizes[-10:])
-    
+
+    # Look for when small clusters stop merging with other small clusters
+    for i in range(len(smallest_sizes)-10, len(smallest_sizes)):
+        print(f"Merge {i}: smallest cluster size = {smallest_sizes[i]}")
+        
+    for cluster_id, member_list in clusters.items():
+        
+        cluster_size = len(member_list)
+        cluster_center = cluster_centers[cluster_id]
+        print(f"Cluster {cluster_id}: {cluster_size} members")
+        print(f"  Shopping pattern: {cluster_center}")
+            
     #print(clusters)
 
     #print(clusters)
