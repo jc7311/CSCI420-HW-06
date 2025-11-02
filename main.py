@@ -170,48 +170,98 @@ def main():
 
     # analyze final clusters
     num_final_clusters = 4
+
     print(f"\nANALYZING FINAL {num_final_clusters} CLUSTERS\n")
 
+    # Create an array to store which cluster each customer belongs to
     record_to_cluster_assignment = np.zeros(num_records, dtype=int)
+
+    # Temporary cluster structure to track clusters
     clusters_at_k = {i: [i] for i in range(num_records)}
+
+    # Track what clusters are still active
     active_ids_at_k = set(range(num_records))
 
+    # Loops the merge history
     for merge_info in merge_history[:-num_final_clusters + 1]:
+
+        # Extract two clusters that were merged
         ci, cj = merge_info['cluster1'], merge_info['cluster2']
+
         if ci in active_ids_at_k and cj in active_ids_at_k:
+
+
             clusters_at_k[ci].extend(clusters_at_k[cj])
+
             del clusters_at_k[cj]
             active_ids_at_k.remove(cj)
 
+    # List of final cluster IDS after stopping at a specific number
     final_cluster_list = sorted(active_ids_at_k)
+
+    # Sequence cluster ids for better analysis
     for new_cid, orig_cid in enumerate(final_cluster_list):
+
+        # Each customer in original cluster gets assign to new sequential cluster ID
         for record_index in clusters_at_k[orig_cid]:
+
             record_to_cluster_assignment[record_index] = new_cid
 
+    # List to store cluster statistics
     cluster_sizes, cluster_prototypes = [], []
+
+    # Calculate size and average for each final cluster
     for cid in range(num_final_clusters):
+        
+        # Find all customers assigned to this cluster
         members = np.where(record_to_cluster_assignment == cid)[0]
+
+        # Count how many customers are in this cluster
         cluster_sizes.append(len(members))
+
+        # Calculate average shopping pattern
         cluster_prototypes.append(np.mean(data_matrix[members], axis=0))
 
+    # Reports cluster counts from smallest to largest order
     print("\nCLUSTER SIZES (from smallest to largest):\n")
+    
+    ####################################
+    # QUESTION 5
+    # Pulls indices that sort cluster sizes array in ascending order (smallest to largest)
+    ####################################
     size_order = np.argsort(cluster_sizes)
+
     for cluster_id in size_order:
         print(f"Cluster {cluster_id}: {cluster_sizes[cluster_id]} members")
 
+    ####################################
+    # QUESTION 6
+    # Reports average protoype of each cluster
+    ####################################
     print("\nCLUSTER PROTOTYPES (Average Attribute Values):\n")
+
     for cluster_id in range(num_final_clusters):
+
         print(f"\nCluster {cluster_id} (Size: {cluster_sizes[cluster_id]}):")
+
+        # Create a dataframe to disply cluster's average purchase pattern
         proto_df = pd.DataFrame({
-            'Attribute': attribute_names,
+
+            'Attribute': attribute_names, # Rerpesents category names
             'Average Value': np.round(cluster_prototypes[cluster_id], 2)
+
         })
+
         print(proto_df.to_string(index=False))
 
+    # Create a datafram mapping each guest to assigned cluster
     results_df = pd.DataFrame({
-        'Guest_ID': guest_ids,
+
+        'Guest_ID': guest_ids, # Guest idenfitifcation numbers
         'Cluster_Assignment': record_to_cluster_assignment
+
     })
+
     results_df.to_csv('cluster_assignments.csv', index=False)
     print("\nCluster assignments saved to 'cluster_assignments.csv'")
 
