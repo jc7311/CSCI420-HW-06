@@ -4,37 +4,41 @@ Authors: Jacky Chan (jc7311), Ethan Chang (elc6696)
 
 """
 
-import csv
-import pandas as pd
-import numpy as np
-import heapq
-import matplotlib.pyplot as plt
+import pandas as pd # Data frames
+import numpy as np # Number calculations
+import heapq # data structure for merging
+import matplotlib.pyplot as plt 
 from scipy.cluster.hierarchy import dendrogram, linkage
 
 def main():
 
     """
-    
-    Part A.
-    
+    Part A. Cross Correlation Analysis
+
+    Loads data sets and separate features from guest IDS, calculates relationships between book categories
+    then saves into correlated matrix comma separted value file.
     """
+
     df = pd.read_csv('HW_CLUSTERING_SHOPPING_CART_v2245a.csv')
 
     features = df.iloc[:, 1:] # to drop guest id
 
     guest_ids = df['ID'].values
 
-    attribute_names = df.columns[1:].tolist()
+    attribute_names = df.columns[1:].tolist() # Exclude guest column so it's not part of attribute names
 
     corr_matrix = features.corr().round(2)
     
-    corr_matrix.to_csv('correlated_matrix.csv')
+    corr_matrix.to_csv('correlated_matrix.csv') # Writes intno correlated matrix csv file
 
     print("\nCross-correlation matrix saved as 'correlated_matrix.csv'\n")
 
     """
     
-    Part B
+    Part B. Agglomerative Clustering
+
+    Sets up initial state that each customer represents an individual cluster themselves. 
+    Utilizes euclidean calulations to determine distances of two clusters and center. 
 
     """
 
@@ -48,7 +52,7 @@ def main():
     cluster_centers = {i: data_matrix[i].copy() for i in range(num_records)}
     active_cluster_ids = set(range(num_records))
     merge_history = []
-
+    
     def compute_euclidean_distance(center1, center2):
         return np.sqrt(np.sum((center1 - center2) ** 2))
 
