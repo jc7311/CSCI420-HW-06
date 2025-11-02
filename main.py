@@ -186,7 +186,9 @@ def main():
     plt.xlabel('Cluster ID')
     plt.ylabel('Merge Distance')
     plt.tight_layout()
-    plt.show()
+
+
+    plt.savefig('dendrogram.png', dpi=300, bbox_inches='tight')
 
 if __name__ == "__main__":
 
