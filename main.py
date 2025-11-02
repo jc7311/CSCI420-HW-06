@@ -1,5 +1,7 @@
 """
+CSCI 420 - HW 06: Agglomeration
 Authors: Jacky Chan (jc7311), Ethan Chang (elc6696)
+
 """
 
 import csv
