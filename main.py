@@ -44,18 +44,34 @@ def main():
 
     print("\nPART B: AGGLOMERATIVE CLUSTERING\n")
 
-    data_matrix = features.values
-    num_records, num_attributes = data_matrix.shape
+    # Convert panda DataFram to numpy array
+    data_matrix = features.values 
 
-    # initialize clusters and centers
+    # num_records: number of customers
+    # num_attributes: number of book categories
+    num_records, num_attributes = data_matrix.shape 
+
+    # initialize clusters and centers {cluster_id: [list_of_customer_indices]}
     clusters = {i: [i] for i in range(num_records)}
+
+    # Store average shopping pattern for each cluster
     cluster_centers = {i: data_matrix[i].copy() for i in range(num_records)}
+
+    # tracks which cluster ids are active
     active_cluster_ids = set(range(num_records))
+
+    #Merge History for analysis
     merge_history = []
-    
+
+    """
+    Calculates straight-line distance between two clusters
+    """
     def compute_euclidean_distance(center1, center2):
         return np.sqrt(np.sum((center1 - center2) ** 2))
 
+    """
+    Compute average shopping pattern for cluster
+    """
     def compute_cluster_center(cluster_member_indices):
         member_data = data_matrix[cluster_member_indices]
         return np.mean(member_data, axis=0)
@@ -63,67 +79,105 @@ def main():
     print(f"Starting agglomerative clustering with {num_records} records")
     print("Building initial distance heap...")
 
-    min_heap = []
-    distance_cache = {}
+    min_heap = [] # priority queue to find closest clusters
+    distance_cache = {} # store computed distances and finds unique ones
 
+    """
+    Create unique, order-independent key for cluster pair (i, j)
+    """
     def pair_key(i, j):
         return (min(i, j), max(i, j))
 
+    # Make active cluster to list for iteration
     active_list = list(range(num_records))
+
+    # Compute all pairwise distances between clusters
     for idx_i in range(len(active_list)):
-        i = active_list[idx_i]
-        center_i = cluster_centers[i]
+
+        i = active_list[idx_i] # Get cluster ID
+        center_i = cluster_centers[i] # Get cluster centroid
+
+        # Compute distances j > i to avoid duplicates
         for idx_j in range(idx_i + 1, len(active_list)):
-            j = active_list[idx_j]
-            center_j = cluster_centers[j]
-            dist = compute_euclidean_distance(center_i, center_j)
-            distance_cache[pair_key(i, j)] = dist
-            heapq.heappush(min_heap, (dist, i, j))
+
+            j = active_list[idx_j] # Get cluster 2 ID
+
+            center_j = cluster_centers[j] # Get cluster 2 centroid
+
+            dist = compute_euclidean_distance(center_i, center_j) # Compute euclidean distance between two clusters
+
+            distance_cache[pair_key(i, j)] = dist # Store distance with unique key
+
+            heapq.heappush(min_heap, (dist, i, j)) # Push distance to heap for efficient value retrieval
 
     print("Initial heap built. Starting clustering...\n")
 
     iteration_count = 0
     total_merges = num_records - 1
 
+    # Stops when all clusters are merged into one
     while len(active_cluster_ids) > 1:
+
         iteration_count += 1
+        
+        # Progress reporting for long-run computing
         if iteration_count % 100 == 0:
             print(f"Progress: {iteration_count}/{total_merges} merges completed, {len(active_cluster_ids)} clusters remaining")
 
+        # Find valid pair to merge
         while True:
-            min_dist, i, j = heapq.heappop(min_heap)
-            if i in active_cluster_ids and j in active_cluster_ids:
-                break
 
+            # Reminder: heapq targets smallest-distance value since it's a priority queue
+            min_dist, i, j = heapq.heappop(min_heap) # Pops closest cluster pair
+
+            if i in active_cluster_ids and j in active_cluster_ids:
+                break # once pair is found, the loop ends
+            
+        # Assign cluster sizes before merging    
         size_i, size_j = len(clusters[i]), len(clusters[j])
+
+        # Find smallest cluster size
         smaller_cluster_size = min(size_i, size_j)
+
+        # Document merge operations
         merge_history.append({
-            'iteration': iteration_count,
-            'cluster1': i,
-            'cluster2': j,
-            'size1': size_i,
-            'size2': size_j,
-            'smaller_size': smaller_cluster_size,
-            'distance': min_dist,
-            'resulting_size': size_i + size_j
+            'iteration': iteration_count, # Merge number
+            'cluster1': i, # id of first cluster
+            'cluster2': j, # id of second cluster
+            'size1': size_i, # size of first cluster
+            'size2': size_j, # size of second cluster
+            'smaller_size': smaller_cluster_size, # pull smallest cluster size
+            'distance': min_dist, # distance of merge
+            'resulting_size': size_i + size_j # total members after merge
         })
 
         # merge j into i
         clusters[i].extend(clusters[j])
+
+        # recalculate centroid for merged cluster
         cluster_centers[i] = compute_cluster_center(clusters[i])
         new_center = cluster_centers[i]
 
+        # Start updating distance from merged cluster to all active clusters
         for other in active_cluster_ids:
+
             if other != i and other != j:
+                
+                # remove old distances that were involved in merging process
                 distance_cache.pop(pair_key(j, other), None)
                 distance_cache.pop(pair_key(i, other), None)
+
+                # compute new distance from merged cluster to a another cluster
                 new_dist = compute_euclidean_distance(new_center, cluster_centers[other])
+
+                # Distance and queue of updated distance
                 distance_cache[pair_key(i, other)] = new_dist
                 heapq.heappush(min_heap, (new_dist, i, other))
 
-        clusters.pop(j, None)
-        cluster_centers.pop(j, None)
-        active_cluster_ids.remove(j)
+        # Clean up cluster 2
+        clusters.pop(j, None) # remove from clusters list
+        cluster_centers.pop(j, None) # remove from centroids list
+        active_cluster_ids.remove(j) # mark as inactive
 
     print(f"\nClustering complete! Total merges: {len(merge_history)}")
 
@@ -139,26 +193,35 @@ def main():
     print("Sizes:", last_10_smallest)
 
     # build linkage matrix
+    # Format: row = [cluster1, cluster2, distance, count]
     linkage_matrix = np.zeros((len(merge_history), 4))
     cluster_id_map = {i: i for i in range(num_records)}
+
     next_cluster_id = num_records
 
+    # Convert merge history into linkage format
     for merge_idx, merge_info in enumerate(merge_history):
         c1, c2 = merge_info['cluster1'], merge_info['cluster2']
+
+        # MApped IDS
         linkage_matrix[merge_idx, 0] = cluster_id_map[c1]
         linkage_matrix[merge_idx, 1] = cluster_id_map[c2]
         linkage_matrix[merge_idx, 2] = merge_info['distance']
         linkage_matrix[merge_idx, 3] = merge_info['resulting_size']
+
+        # Both clusters go to new merged ID
         cluster_id_map[c1] = next_cluster_id
         cluster_id_map[c2] = next_cluster_id
+
         next_cluster_id += 1
 
-    # plot dendrogram
+    # plot dendrogram for data visualization
     print("\nDENDROGRAM - Last 20 Clusters\n")
     plt.figure(figsize=(14, 8))
+
     dendrogram(
         linkage_matrix,
-        truncate_mode='lastp',
+        truncate_mode='lastp', # Show last p clusters. p = 20
         p=20,
         show_leaf_counts=True,
         leaf_font_size=10
